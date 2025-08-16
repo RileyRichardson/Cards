@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36310.24
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cards_Generic_Engine", "Cards_Generic_Engine\Cards_Generic_Engine.csproj", "{C5A314B8-3300-4DB5-945A-2BC5943EE923}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Cards_Installer", "Cards_Installer\Cards_Installer.vdproj", "{58238673-A2FB-78C5-6B76-DBE86C54D406}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C5A314B8-3300-4DB5-945A-2BC5943EE923}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5A314B8-3300-4DB5-945A-2BC5943EE923}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5A314B8-3300-4DB5-945A-2BC5943EE923}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5A314B8-3300-4DB5-945A-2BC5943EE923}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58238673-A2FB-78C5-6B76-DBE86C54D406}.Debug|Any CPU.ActiveCfg = Debug
+		{58238673-A2FB-78C5-6B76-DBE86C54D406}.Release|Any CPU.ActiveCfg = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E87D4380-D9C6-430E-AF0C-E03C2E909F81}
+	EndGlobalSection
+EndGlobal

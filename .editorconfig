@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# CA1822: Not all paths return a value;
+dotnet_diagnostic.CS0161.severity = warning
