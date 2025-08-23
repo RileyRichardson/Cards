@@ -69,6 +69,7 @@ namespace Cards_Generic_Engine {
 						handlers[i].GetStream().Read(msg_lngth_bffr, 0, 4);
 						byte[] msg = new byte[BitConverter.ToInt32(msg_lngth_bffr)];
 						handlers[i].GetStream().Read(msg,0,msg.Length);
+						Debug.WriteLine("msg from client: "+msg.ToString());
 						for (int j = 0; j < handlers.Count; j++) {
 							if (j==i) continue;
 							handlers[i].GetStream().Write(msg_lngth_bffr,0,4);
@@ -83,6 +84,7 @@ namespace Cards_Generic_Engine {
 					client.GetStream().Write(BitConverter.GetBytes(msg.Length),0,4);
 					client.GetStream().Write(Encoding.UTF8.GetBytes(msg));
 					next_client_num++;
+					Debug.WriteLine("client accepted");
 				}
 				Thread.Sleep(10);
 			}

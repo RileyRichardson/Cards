@@ -4,7 +4,7 @@ using System.IO;
 namespace Cards_Generic_Engine {
 	internal class Card {
 		protected PictureBox cardImage;
-		private Button Overlay;
+		protected Button Overlay;
 		public bool FaceUp;
 		public string card;
 		protected ContextMenuStrip menu;
@@ -12,7 +12,7 @@ namespace Cards_Generic_Engine {
 		public bool SystemLock = false;
 		public static event EventHandler? NewCard;
 		public static event EventHandler? CardPlaced;
-		public static event EventHandler? CardMoved;
+		public event EventHandler? CardMoved;
 		public static event EventHandler? CardNulled;
 		protected Form BaseForm;
 		public bool Voided = false;
@@ -22,8 +22,13 @@ namespace Cards_Generic_Engine {
 		public int deck_index;
 
 		public Card(Form form, string card_, Point p) {
-			deck_folder = "%addData%/Cards/Decks/Default_Cards";
-			cardNum++;
+			if(card_ != "") {
+				DirectoryInfo dir = new(card_);
+				deck_folder = dir.Name;
+			} else {
+				deck_folder = "";
+			}
+				cardNum++;
 			identifier = cardNum.ToString();
 			BaseForm = form;
 			card = card_;
@@ -67,10 +72,10 @@ namespace Cards_Generic_Engine {
 			BaseForm.Controls.Remove(cardImage);
 		}
 		public void Nullify() {
-			BaseForm.Controls.Remove(cardImage);
+			Delete();
 			CardNulled?.Invoke(this, EventArgs.Empty);
 		}
-		private void Lock(object? sender, EventArgs e) {
+		public void Lock() {
 			if (Locked) {
 				Locked = false;
 				menu.Items[0].Text = "Lock";
@@ -78,7 +83,9 @@ namespace Cards_Generic_Engine {
 				Locked = true;
 				menu.Items[0].Text = "Unlock";
 			}
-
+		}
+		private void Lock(object? sender, EventArgs e) {
+			Lock();
 		}
 		public void BringToTop() {
 			cardImage.BringToFront();
@@ -93,7 +100,7 @@ namespace Cards_Generic_Engine {
 			}
 
 		}
-		public void Flip() {
+		public virtual void Flip() {
 			if (FaceUp) {
 				cardImage.Image = Properties.Resources.CardBack;
 				cardImage.ImageLocation = null;
@@ -139,15 +146,84 @@ namespace Cards_Generic_Engine {
 	}
 	class Stack : Card {
 		private List<Card> Cards;
+		ToolStripMenuItem LayoutMenu;
 		public Stack(Form form, Point p) : base(form, "", p) {
 			Cards = [];
 			cardImage.SendToBack();
 			CardPlaced += SnapCard;
 			cardImage.Tag = "stack";
+			menu.Items.Add("Change Card Layout");
+			LayoutMenu = (ToolStripMenuItem)menu.Items[^1];
+			LayoutMenu.DropDownItems.Add("Left To Right");
+			LayoutMenu.DropDownItems.Add("Top To Bottom");
+			LayoutMenu.DropDownItems[0].Click += SetLeftToRight;
+			LayoutMenu.DropDownItems[1].Click += SetTopToBottom;
 		}
+		private int leftToRight = 0;
+		private int topToBottom = 1;
+		private int stack = -1;
+		public void SetLeftToRight(object? sender,EventArgs e) {
+			LayoutMenu.DropDownItems[leftToRight].Click -= SetLeftToRight;
+			if (stack == -1) {
+				LayoutMenu.DropDownItems[leftToRight].Text = "Stack";
+				LayoutMenu.DropDownItems[leftToRight].Click += SetStack;
+				stack = leftToRight;
+			} else if ( topToBottom == -1) {
+				LayoutMenu.DropDownItems[leftToRight].Text = "Top To Bottom";
+				LayoutMenu.DropDownItems[leftToRight].Click += SetTopToBottom;
+				topToBottom = leftToRight;
+			}
+			leftToRight = -1;
+		}
+		public void SetTopToBottom(object? sender, EventArgs e) {
+			LayoutMenu.DropDownItems[topToBottom].Click -= SetTopToBottom;
+			if (stack == -1) {
+				LayoutMenu.DropDownItems[topToBottom].Text = "Stack";
+				LayoutMenu.DropDownItems[topToBottom].Click += SetStack;
+				stack = topToBottom;
+			} else if (leftToRight == -1) {
+				LayoutMenu.DropDownItems[topToBottom].Text = "Left To Right";
+				LayoutMenu.DropDownItems[topToBottom].Click += SetLeftToRight;
+				leftToRight = topToBottom;
+			}
+			topToBottom = -1;
+		}
+		public void SetStack(object? sender, EventArgs e) {
+			LayoutMenu.DropDownItems[stack].Click -= SetStack;
+			if (leftToRight == -1) {
+				LayoutMenu.DropDownItems[stack].Text = "Left To Right";
+				LayoutMenu.DropDownItems[stack].Click += SetLeftToRight;
+				leftToRight = stack;
+			} else if (topToBottom == -1) {
+				LayoutMenu.DropDownItems[stack].Text = "Top To Bottom";
+				LayoutMenu.DropDownItems[stack].Click += SetTopToBottom;
+				topToBottom = stack;
+			}
+			stack = -1;
+		}
+		private int scale = 3;
 		public void AddCard(Card card) {
+			
+			if(stack == -1) {
+				card.Move(cardImage.Location);
+			}else if(leftToRight == -1) {
+				Point p = cardImage.Location;
+				p.X += Cards.Count*cardImage.Width/scale;
+				card.Move(p);
+			} else {
+
+			}
+			card.BringToTop();
+			BringToTop();
 			Cards.Insert(0, card);
-			ChangeCard(card.card);
+		}
+		public void AddCard(string deck, int[] order) {
+			DirectoryInfo dirInfo = new(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Cards/Decks/" + deck);
+			FileInfo[] fileInfo = dirInfo.GetFiles();
+			Array.Sort(fileInfo, (f1, f2) => f1.Name.CompareTo(f2.Name));
+			foreach(int i in order){
+				AddCard(new(BaseForm, fileInfo[i].FullName,GetLocation()));
+			}
 		}
 		public override string GetCard() {
 			if (Cards.Count == 0) {
@@ -155,12 +231,6 @@ namespace Cards_Generic_Engine {
 			}
 			string card = Cards[0].card;
 			Cards.RemoveAt(0);
-			if (Cards.Count == 0) {
-				cardImage.Image = Properties.Resources.EmptyStack;
-			} else {
-				ChangeCard(Cards[0].card);
-			}
-
 			return card;
 		}
 		public void RemoveCards(string deck_id) {
@@ -172,11 +242,6 @@ namespace Cards_Generic_Engine {
 					i--;
 				}
 			}
-			if (Cards.Count == 0) {
-				cardImage.Image = Properties.Resources.EmptyStack;
-			} else {
-				ChangeCard(Cards[0].card);
-			}
 		}
 		public int[] GetOrder() {
 			int[] ret = new int[Cards.Count];
@@ -185,6 +250,10 @@ namespace Cards_Generic_Engine {
 			}
 			return ret;
 		}
+		public override void Flip() {
+
+		}
+
 		public void SnapCard(object? sender, EventArgs e) {
 			if (sender == null) return;
 			Card c = (Card)sender;
@@ -197,21 +266,15 @@ namespace Cards_Generic_Engine {
 				p == GetLocation()) {
 				AddCard(c);
 				if (c.FaceUp ^ FaceUp) Flip();
-				c.Nullify();
+
 			}
 		}
 		public override void MouseDown(object? sender, MouseEventArgs e) {
 			if (e.Button != MouseButtons.Left) return;
-			if (Locked) {
-				bool face = FaceUp;
-				string id = Cards[0].identifier;
-				Card newCard = new(BaseForm, GetCard(), new(cardImage.Left + e.X - BaseForm.Width / 24, cardImage.Top + e.Y - BaseForm.Height / 10));
-				newCard.identifier = id;
-				if (!face) newCard.Flip();
-				newCard.BringToTop();
-				newCard.MouseDown(sender, e);
-				InvokeNewCard(newCard);
+			if (Locked&&Cards.Count>0) {
+				
 			} else {
+				if (Locked) return;
 				base.MouseDown(sender, e);
 			}
 
@@ -229,17 +292,23 @@ namespace Cards_Generic_Engine {
 		}
 		List<CardIndexPair> Cards;
 		public static event EventHandler Recall;
-		public Deck(Form form, Point p) : base(form, "", p) {
+		public Deck(Form form, Point p,string deck_dir = "Default_Cards") : base(form, "", p) {
+			deck_folder = deck_dir;
 			Cards = [];
 			menu.Items.Add("Shuffle Deck");
 			menu.Items[1].Text = "Reveal Top Card";
 			menu.Items[^1].Click += Shuffle;
 			menu.Items.Add("Recall");
 			menu.Items[^1].Click += RecallDeck;
+			menu.Items.Add("Flip Deck");
+			menu.Items[^1].Click += FlipDeck;
 			Flip();
-			LoadDeck(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Cards/Decks/Default_Cards");
+			LoadDeck(deck_folder);
 			Shuffle();
 			cardImage.Tag = "deck";
+		}
+		private void FlipDeck(object? sender,EventArgs e) {
+
 		}
 		public int[] GetOrder() {
 			int[] ret = new int[Cards.Count];
@@ -248,8 +317,9 @@ namespace Cards_Generic_Engine {
 			}
 			return ret;
 		}
+
 		public void Reorder(int[] order) {
-			LoadDeck(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)+"/Cards/Decks/Default_Cards");
+			LoadDeck(deck_folder);
 			List<CardIndexPair> oldDeck = Cards;
 			Cards = [];
 			foreach(int i in order) {
@@ -268,9 +338,9 @@ namespace Cards_Generic_Engine {
 			}
 			return card;
 		}
-		public void LoadDeck(string deckFolder) {
-			Debug.WriteLine(deckFolder);
-			DirectoryInfo dirInfo = new(deckFolder);
+		public void LoadDeck(string deckdir) {
+			DirectoryInfo dirInfo = new(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Cards/Decks/"+deckdir);
+			deck_folder = deckdir;
 			FileInfo[] fileInfo = dirInfo.GetFiles();
 			Array.Sort(fileInfo,(f1,f2)=>f1.Name.CompareTo(f2.Name));
 			Cards = [];

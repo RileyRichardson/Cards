@@ -30,10 +30,9 @@ namespace Cards_Generic_Engine {
 			NewStack.MouseDown += NewStack_Button;
 			form.Controls.Add(NewStack);
 			form.Controls.Add(NewDeck);
-			Card.NewCard += NewCard;
-			Card.CardMoved += MoveCard;
+			Card.NewCard += OnNewCard;
 			Card.CardNulled += RemoveCard;
-			Deck.Recall += DeckRecalled;
+			Deck.Recall += OnDeckRecalled;
 		}
 		public void SetIdentifier(string id) {
 			identefier = id;
@@ -47,64 +46,64 @@ namespace Cards_Generic_Engine {
 		private void NewDeckMouseDown(object? sender, MouseEventArgs e) {
 			if (e.Button == System.Windows.Forms.MouseButtons.Left) {
 				createdDeck = new Deck(BaseForm, new Point(NewDeck.Left + e.X - (BaseForm.Width / 24), 16));
-				createdDeck.identifier = "d" + identefier + "," + createdDeck.identifier;
-				Cards.Add(createdDeck);
+				AddCard(createdDeck);
 				createdDeck.BringToTop();
 				createdDeck.MouseDown(sender, e);
+				OnNewCard(createdDeck,EventArgs.Empty);
 			}
 		}
 		private void NewStack_Button(object? sender, MouseEventArgs e) {
 			if (e.Button == System.Windows.Forms.MouseButtons.Left) {
 				createdStack = new Stack(BaseForm, new Point(NewDeck.Left - 16 - (BaseForm.Width / 24), 16));
-				createdStack.identifier = "s" + identefier + "," + createdStack.identifier;
-				Cards.Add(createdStack);
+				AddCard(createdStack);
 				createdStack.BringToTop();
 				createdStack.MouseDown(sender, e);
-
+				OnNewCard(createdDeck,EventArgs.Empty);	
 			}
 		}
 		public string GetBoard() {
 
 			return "";
 		}
-		public string NewCard(Card card) {
+		public string AddCard(Card card) {
 			string? tag = card.GetTag();
 			if (tag == "card") {
-				if (card.identifier[0] != 'c') card.identifier = "c" + identefier + "," + card.identifier;
+				if (card.identifier[0] != 'c') card.identifier = "c" + identefier + "." + card.identifier;
 			} else if (tag == "deck") {
-				if (card.identifier[0] != 'd') card.identifier = "d" + identefier + "," + card.identifier;
+				if (card.identifier[0] != 'd') card.identifier = "d" + identefier + "." + card.identifier;
 			} else if (tag == "stack") {
-				if (card.identifier[0] != 's') card.identifier = "s" + identefier + "," + card.identifier;
+				if (card.identifier[0] != 's') card.identifier = "s" + identefier + "." + card.identifier;
 			}
+			card.CardMoved += MoveCard;
 			Cards.Add(card);
 			return card.identifier;
 		}
-		public void NewCard(object? sender, EventArgs e) {
+		public void OnNewCard(object? sender, EventArgs e) {
 			if (sender == null) return;
-			string id = NewCard((Card)sender);
+			string id = AddCard((Card)sender);
 			//N<card_id>,<x>,<y>,<deck_file>,<card_list>
 			Point p = ((Card)sender).GetLocation();
-			string msg = "N" + id + "," + p.X + "," + p.Y;
+			string msg = "N" + id + "." + p.X + "." + p.Y;
 			if (id[0] == 'c') {
-				msg += "," + ((Card)sender).deck_index;
+				msg += "." + ((Card)sender).deck_index;
 			} else if (id[0] == 'd') {
 				int[] indexs = ((Deck)sender).GetOrder();
 				foreach (int i in indexs) {
-					msg += "," + i.ToString();
+					msg += "." + i.ToString();
 				}
 			} else if (id[0] == 's') {
 				int[] indexs = ((Stack)sender).GetOrder();
 				foreach (int i in indexs) {
-					msg += "," + i.ToString();
+					msg += "." + i.ToString();
 				}
 			}
 			Debug.WriteLine(msg);
 			UpdatedBoardState?.Invoke(msg, EventArgs.Empty);
 
 		}
-		public void DeckRecalled(string deck_id) {
+		public void RecallDeck(string deck_id) {
 			for (int i = 0; i < Cards.Count; i++) {
-				string[] split = Cards[i].identifier.Split("-");
+				string[] split = Cards[i].identifier.Split(".");
 				if (Cards[i].GetTag() == "stack") {
 					((Stack)Cards[i]).RemoveCards(deck_id);
 					continue;
@@ -117,9 +116,9 @@ namespace Cards_Generic_Engine {
 				}
 			}
 		}
-		public void DeckRecalled(object? sender, EventArgs e) {
+		public void OnDeckRecalled(object? sender, EventArgs e) {
 			if (sender == null) return;
-			DeckRecalled(((Deck)sender).identifier);
+			RecallDeck(((Deck)sender).identifier);
 			//R<deck_id>
 			string msg = "R" + ((Deck)sender).identifier;
 			UpdatedBoardState?.Invoke(msg, EventArgs.Empty);
@@ -184,26 +183,30 @@ namespace Cards_Generic_Engine {
 				//New
 				//N<card_id>,<x>,<y>,<deck_file>,<card_list>
 				case 'N':
-					Debug.WriteLine("MakeCard");
 					Point p = new(int.Parse(msg[1]), int.Parse(msg[2]));
-					DirectoryInfo dirInfo = new(msg[3]);
+					DirectoryInfo dirInfo = new(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Cards/Decks/" + msg[3]);
 					FileInfo[] fileInfo = dirInfo.GetFiles();
 					Array.Sort(fileInfo, (f1, f2) => f1.Name.CompareTo(f2.Name));
 					if (msg[0][0] == 'c') {
 						Card c = new(BaseForm, fileInfo[int.Parse(msg[4])].FullName, p);
 						c.deck_index = int.Parse(msg[4]);
-						NewCard(c);
-						Cards.Add(c);
+						c.identifier = msg[0];
+						AddCard(c);
 					} else if (msg[0][0] == 'd') {
-						Deck c = new(BaseForm, p);
+						Deck c = new(BaseForm, p, msg[3]);
 						int[] order = new int[msg.Length - 4];
 						for (int i = 4; i < msg.Length; i++) {
 							order[i - 4] = int.Parse(msg[i]);
 						}
 						c.Reorder(order);
-						NewCard(c);
+						c.identifier = msg[0];
+						AddCard(c);
 					} else if (msg[0][0] == 's') {
-
+						Stack c = new(BaseForm,p);
+						int[] order = new int[msg.Length - 4];
+						for (int i = 4; i < msg.Length; i++) {
+							order[i - 4] = int.Parse(msg[i]);
+						}
 					}
 					break;
 				//Shuffle
